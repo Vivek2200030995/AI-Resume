@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Resume & Interview Assistant</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <div class="logo">AI Resume Assistant</div>
+            <ul class="nav-links">
+                <li><a href="#hero">Home</a></li>
+                <li><a href="#features">Features</a></li>
+                <li><a href="#ats">ATS Score</a></li>
+                <li><a href="#analyzer">Analyzer</a></li>
+                <li><a href="#interview">Interview</a></li>
+                <li><a href="#feedback">Feedback</a></li>
+                <li><a href="#portfolio">Portfolio</a></li>
+            </ul>
+            <div class="hamburger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+    </nav>
+    <section id="hero" class="hero">
+        <div class="container">
+            <h1>Boost Your Career with AI-Powered Resume & Interview Tools</h1>
+            <p>Analyze, optimize, and prepare for success with our advanced AI assistant.</p>
+            <button class="btn-primary">Get Started</button>
+        </div>
+    </section>
+    <section id="features" class="features">
+        <div class="container">
+            <h2>Key Features</h2>
+            <div class="feature-cards">
+                <div class="card">
+                    <h3>Resume Optimization</h3>
+                    <p>AI-driven suggestions to improve your resume.</p>
+                </div>
+                <div class="card">
+                    <h3>ATS Compatibility</h3>
+                    <p>Ensure your resume passes Applicant Tracking Systems.</p>
+                </div>
+                <div class="card">
+                    <h3>Interview Prep</h3>
+                    <p>Practice with AI-generated questions and feedback.</p>
+                </div>
+                <div class="card">
+                    <h3>Portfolio Builder</h3>
+                    <p>Create stunning portfolios effortlessly.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+    <section id="ats" class="ats-score">
+        <div class="container">
+            <h2>ATS Score Checker</h2>
+            <div class="score-display">
+                <div class="score-circle" id="overall-score">85%</div>
+                <p>Your resume's ATS compatibility score.</p>
+                <div class="score-details" id="score-details">
+                    <!-- Details will be populated -->
+                </div>
+            </div>
+        </div>
+    </section>
+    <section id="analyzer" class="resume-analyzer">
+        <div class="container">
+            <h2>Resume Analyzer</h2>
+            <div class="analyzer-form">
+                <form id="upload-form" enctype="multipart/form-data">
+                    <input type="file" id="resume-upload" name="resume" accept=".pdf,.docx" required>
+                    <button type="submit" class="btn-secondary">Analyze Resume</button>
+                </form>
+            </div>
+            <div class="analysis-results" id="results">
+                <!-- Results will be shown here -->
+            </div>
+        </div>
+    </section>
+    <section id="interview" class="interview-dashboard">
+        <div class="container">
+            <h2>Interview Preparation Dashboard</h2>
+            <div class="interview-prompt-box">
+                <textarea id="interview-prompt" placeholder="Enter role summary, company focus, or resume highlights."></textarea>
+                <div class="prompt-actions">
+                    <button id="generate-questions" class="btn-secondary">Generate Questions</button>
+                    <span class="hint">Use a short prompt to personalize your practice session.</span>
+                </div>
+            </div>
+            <div class="question-tabs">
+                <button class="tab-btn active" data-tab="technical">Technical & Projects</button>
+                <button class="tab-btn" data-tab="hr">HR & Behavioral</button>
+            </div>
+            <div class="questions-container" id="questions-container">
+                <div class="interview-summary note">Choose a tab and generate questions to see a focused set of practice prompts.</div>
+            </div>
+        </div>
+    </section>
+    <section id="feedback" class="ai-feedback">
+        <div class="container">
+            <h2>AI Feedback & Suggestions</h2>
+            <div class="feedback-list" id="feedback-list">
+                <!-- Feedback will be shown here -->
+            </div>
+        </div>
+    </section>
+    <section id="portfolio" class="portfolio-preview">
+        <div class="container">
+            <h2>AI Portfolio Builder</h2>
+            <p class="section-subtitle">Generate a professional portfolio from your resume analysis</p>
+            <button id="generate-portfolio" class="btn-primary" style="margin-bottom: 2rem;">Generate Portfolio</button>
+            <div class="portfolio-content" id="portfolio-content">
+                <div class="portfolio-placeholder">
+                    <p>Upload and analyze your resume to generate a professional portfolio structure with design recommendations.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>
