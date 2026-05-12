@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+.env.*
+uploads/
+.git/
+.gitignore
+.DS_Store
+README.md
+**/node_modules

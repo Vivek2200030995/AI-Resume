@@ -18,198 +18,301 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Resume upload and analysis
     const uploadForm = document.getElementById('upload-form');
+    const resumeInput = document.getElementById('resume-upload');
     const resultsDiv = document.getElementById('results');
     const overallScoreDiv = document.getElementById('overall-score');
     const scoreDetailsDiv = document.getElementById('score-details');
     const feedbackListDiv = document.getElementById('feedback-list');
+    const submitButton = uploadForm.querySelector('[type="submit"]');
+    let currentAnalysis = null;
 
     uploadForm.addEventListener('submit', async (e) => {
         e.preventDefault();
+
+        if (!resumeInput || !resumeInput.files || resumeInput.files.length === 0) {
+            resultsDiv.innerHTML = '<p class="error-message">Please select a PDF or DOCX resume file first.</p>';
+            console.warn('No file selected for upload');
+            return;
+        }
+
+        const file = resumeInput.files[0];
+        const allowedTypes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+        const maxSize = 16 * 1024 * 1024; // 16MB
+
+        if (!allowedTypes.includes(file.type) && !file.name.toLowerCase().endsWith('.pdf') && !file.name.toLowerCase().endsWith('.docx')) {
+            resultsDiv.innerHTML = '<p class="error-message">Please upload a valid PDF or DOCX file.</p>';
+            console.warn('Invalid file type:', file.type, file.name);
+            return;
+        }
+
+        if (file.size > maxSize) {
+            resultsDiv.innerHTML = '<p class="error-message">File size too large. Please upload a file smaller than 16MB.</p>';
+            console.warn('File too large:', file.size);
+            return;
+        }
+
+        const originalButtonText = submitButton ? submitButton.textContent : 'Analyzing...';
+        if (submitButton) {
+            submitButton.disabled = true;
+            submitButton.textContent = 'Analyzing...';
+            submitButton.classList.add('loading');
+        }
+
+        resultsDiv.innerHTML = '<div class="loading"></div><p class="status-message">Analyzing resume...</p>';
+        overallScoreDiv.textContent = '';
+        scoreDetailsDiv.innerHTML = '';
+        feedbackListDiv.innerHTML = '';
+
         const formData = new FormData(uploadForm);
-        resultsDiv.innerHTML = '<div class="loading"></div> Analyzing...';
+        console.log('Submitting resume for analysis', { fileName: resumeInput.files[0]?.name, fileSize: resumeInput.files[0]?.size });
 
         try {
+            console.log('Sending fetch request to /analyze');
             const response = await fetch('/analyze', {
                 method: 'POST',
                 body: formData
             });
-            const data = await response.json();
 
-            if (response.ok) {
-                displayAnalysis(data);
-                displayATSScore(data.ats_score);
-                displayFeedback(data.feedback);
-                currentAnalysis = { analysis: data.analysis };
+            console.log('Received response', { status: response.status, ok: response.ok, statusText: response.statusText });
+
+            const contentType = response.headers.get('content-type') || '';
+            console.log('Response content-type:', contentType);
+
+            const text = await response.text();
+            console.log('Response text length:', text.length);
+            console.log('Response text preview:', text.substring(0, 200) + (text.length > 200 ? '...' : ''));
+
+            let data = null;
+            if (contentType.includes('application/json') || text.trim().startsWith('{')) {
+                try {
+                    data = JSON.parse(text);
+                    console.log('Successfully parsed JSON response:', data);
+                } catch (parseError) {
+                    console.error('Failed to parse JSON from /analyze response:', parseError);
+                    console.error('Raw response text:', text);
+                    resultsDiv.innerHTML = '<p class="error-message">Server returned invalid response format. Please try again.</p>';
+                    return;
+                }
             } else {
-                resultsDiv.innerHTML = `<p>Error: ${data.error}</p>`;
+                console.error('Expected JSON response but received:', { contentType, text });
+                resultsDiv.innerHTML = '<p class="error-message">Server returned unexpected response format. Please try again.</p>';
+                return;
+            }
+
+            if (response.ok && data) {
+                console.log('Response is OK and data exists, checking for analysis data');
+                if (data.analysis) {
+                    console.log('Analysis data found, displaying results');
+                    displayAnalysis(data);
+                    displayATSScore(data.ats_score || {});
+                    displayFeedback(data.feedback || []);
+                    currentAnalysis = { analysis: data.analysis };
+                    console.log('Analysis displayed successfully');
+                } else {
+                    console.warn('Response OK but no analysis data in response:', data);
+                    const errorMessage = data.error || 'Analysis failed: No analysis data received from server.';
+                    resultsDiv.innerHTML = `<p class="error-message">${errorMessage}</p>`;
+                }
+            } else {
+                console.error('Response not OK or no data:', { ok: response.ok, data });
+                const errorMessage = data?.error || (response.ok ? 'Unexpected server response. Please try again.' : `Server error ${response.status}: ${response.statusText}`);
+                resultsDiv.innerHTML = `<p class="error-message">${errorMessage}</p>`;
             }
         } catch (error) {
-            resultsDiv.innerHTML = '<p>Error analyzing resume. Please try again.</p>';
+            console.error('Network or fetch error while analyzing resume:', error);
+            resultsDiv.innerHTML = '<p class="error-message">Unable to analyze resume right now. Please check your connection and try again.</p>';
+        } finally {
+            if (submitButton) {
+                submitButton.disabled = false;
+                submitButton.textContent = originalButtonText;
+                submitButton.classList.remove('loading');
+            }
+            console.log('Analysis request completed');
         }
     });
 
     function displayAnalysis(data) {
-        const analysis = data.analysis;
+        console.log('Displaying analysis data:', data);
+        const analysis = data.analysis || {};
+        const summary = analysis.summary || {};
+        const skills = analysis.skills || {};
+        const projects = analysis.projects || [];
+        const strengths = analysis.strengths || [];
+        const weaknesses = analysis.weaknesses || [];
+        const optimization = analysis.optimization || {};
+        const finalEvaluation = analysis.final_evaluation || {};
+
         resultsDiv._analysisData = analysis;
         resultsDiv.innerHTML = `
             <div class="analysis-section">
                 <h3>Resume Summary</h3>
-                <p>${analysis.summary.professional_summary}</p>
-                <p><strong>Domain:</strong> ${analysis.summary.career_domain}</p>
-                <p><strong>Experience Level:</strong> ${analysis.summary.experience_level}</p>
+                <p>${summary.professional_summary || 'Summary not available'}</p>
+                <p><strong>Domain:</strong> ${summary.career_domain || 'Not detected'}</p>
+                <p><strong>Experience Level:</strong> ${summary.experience_level || 'Not determined'}</p>
             </div>
             <div class="analysis-section">
                 <h3>Skills Analysis</h3>
                 <div class="skill-category">
                     <h4>Programming Languages</h4>
-                    <p>${analysis.skills['Programming Languages'].length ? analysis.skills['Programming Languages'].join(', ') : 'None detected'}</p>
+                    <p>${(skills['Programming Languages'] || []).length ? skills['Programming Languages'].join(', ') : 'None detected'}</p>
                 </div>
                 <div class="skill-category">
                     <h4>Frameworks & Tools</h4>
-                    <p>${analysis.skills['Frameworks & Tools'].length ? analysis.skills['Frameworks & Tools'].join(', ') : 'None detected'}</p>
+                    <p>${(skills['Frameworks & Tools'] || []).length ? skills['Frameworks & Tools'].join(', ') : 'None detected'}</p>
                 </div>
                 <div class="skill-category">
                     <h4>Databases</h4>
-                    <p>${analysis.skills['Databases'].length ? analysis.skills['Databases'].join(', ') : 'None detected'}</p>
+                    <p>${(skills['Databases'] || []).length ? skills['Databases'].join(', ') : 'None detected'}</p>
                 </div>
                 <div class="skill-category">
                     <h4>Other Technologies</h4>
-                    <p>${analysis.skills['Other Technologies'].length ? analysis.skills['Other Technologies'].join(', ') : 'None detected'}</p>
+                    <p>${(skills['Other Technologies'] || []).length ? skills['Other Technologies'].join(', ') : 'None detected'}</p>
                 </div>
                 <div class="skill-category">
                     <h4>Soft Skills</h4>
-                    <p>${analysis.skills['Soft Skills'].length ? analysis.skills['Soft Skills'].join(', ') : 'None detected'}</p>
+                    <p>${(skills['Soft Skills'] || []).length ? skills['Soft Skills'].join(', ') : 'None detected'}</p>
                 </div>
             </div>
             <div class="analysis-section">
                 <h3>Project Analysis</h3>
-                ${analysis.projects.length ? analysis.projects.map(project => `
+                ${projects.length ? projects.map(project => `
                     <div class="project-summary">
-                        <h4>${project.title}</h4>
-                        <p><strong>Purpose:</strong> ${project.purpose}</p>
-                        <p><strong>Technologies:</strong> ${project.technologies.length ? project.technologies.join(', ') : 'Not listed'}</p>
-                        <p><strong>Impact:</strong> ${project.impact}</p>
-                        <p><strong>Strengths:</strong> ${project.strengths.join(' ')}</p>
+                        <h4>${project.title || 'Untitled Project'}</h4>
+                        <p><strong>Purpose:</strong> ${project.purpose || 'Not specified'}</p>
+                        <p><strong>Technologies:</strong> ${(project.technologies || []).length ? project.technologies.join(', ') : 'Not listed'}</p>
+                        <p><strong>Impact:</strong> ${project.impact || 'Not specified'}</p>
+                        <p><strong>Strengths:</strong> ${(project.strengths || []).join(' ')}</p>
                     </div>
                 `).join('') : '<p>No projects could be analyzed from the resume.</p>'}
             </div>
             <div class="analysis-section">
                 <h3>Resume Strengths</h3>
-                <ul>${analysis.strengths.map(item => `<li>${item}</li>`).join('')}</ul>
+                <ul>${strengths.length ? strengths.map(item => `<li>${item}</li>`).join('') : '<li>No strengths identified</li>'}</ul>
             </div>
             <div class="analysis-section">
                 <h3>Weaknesses & Missing Areas</h3>
-                <ul>${analysis.weaknesses.map(item => `<li>${item}</li>`).join('')}</ul>
+                <ul>${weaknesses.length ? weaknesses.map(item => `<li>${item}</li>`).join('') : '<li>No weaknesses identified</li>'}</ul>
             </div>
             <div class="analysis-section">
                 <h3>ATS Optimization Suggestions</h3>
-                <p><strong>Industry Keywords:</strong> ${analysis.optimization.industry_keywords.join(', ')}</p>
-                <p><strong>Formatting:</strong> ${analysis.optimization.formatting}</p>
-                <p><strong>Readability:</strong> ${analysis.optimization.readability}</p>
-                <ul>${analysis.optimization.suggestions.map(item => `<li>${item}</li>`).join('')}</ul>
+                <p><strong>Industry Keywords:</strong> ${(optimization.industry_keywords || []).join(', ')}</p>
+                <p><strong>Formatting:</strong> ${optimization.formatting || 'Not available'}</p>
+                <p><strong>Readability:</strong> ${optimization.readability || 'Not available'}</p>
+                <ul>${(optimization.suggestions || []).length ? optimization.suggestions.map(item => `<li>${item}</li>`).join('') : '<li>No suggestions available</li>'}</ul>
             </div>
             <div class="analysis-section">
                 <h3>Final Evaluation</h3>
-                <p><strong>Resume Quality Score:</strong> ${analysis.final_evaluation.quality_score} / 10</p>
-                <p><strong>Professional Level:</strong> ${analysis.final_evaluation.level}</p>
+                <p><strong>Resume Quality Score:</strong> ${finalEvaluation.quality_score || 'N/A'} / 10</p>
+                <p><strong>Professional Level:</strong> ${finalEvaluation.level || 'Not determined'}</p>
             </div>
         `;
+        console.log('Analysis displayed successfully');
     }
 
     function displayATSScore(atsScore) {
-        overallScoreDiv.textContent = `${atsScore.overall}%`;
+        console.log('Displaying ATS score:', atsScore);
+        const overall = atsScore.overall || 0;
+        const keywordMatching = atsScore.keyword_matching || 0;
+        const formatting = atsScore.formatting || 0;
+        const projects = atsScore.projects || 0;
+        const skills = atsScore.skills || 0;
+
+        overallScoreDiv.textContent = `${overall}%`;
         scoreDetailsDiv.innerHTML = `
             <div class="score-item">
                 <h4>Keyword Matching</h4>
-                <p>${atsScore.keyword_matching}%</p>
+                <p>${keywordMatching}%</p>
                 <div class="progress-bar">
-                    <div class="progress-fill" style="width: ${atsScore.keyword_matching}%"></div>
+                    <div class="progress-fill" style="width: ${keywordMatching}%"></div>
                 </div>
             </div>
             <div class="score-item">
                 <h4>Formatting</h4>
-                <p>${atsScore.formatting}%</p>
+                <p>${formatting}%</p>
                 <div class="progress-bar">
-                    <div class="progress-fill" style="width: ${atsScore.formatting}%"></div>
+                    <div class="progress-fill" style="width: ${formatting}%"></div>
                 </div>
             </div>
             <div class="score-item">
                 <h4>Projects</h4>
-                <p>${atsScore.projects}%</p>
+                <p>${projects}%</p>
                 <div class="progress-bar">
-                    <div class="progress-fill" style="width: ${atsScore.projects}%"></div>
+                    <div class="progress-fill" style="width: ${projects}%"></div>
                 </div>
             </div>
             <div class="score-item">
                 <h4>Skills</h4>
-                <p>${atsScore.skills}%</p>
+                <p>${skills}%</p>
                 <div class="progress-bar">
-                    <div class="progress-fill" style="width: ${atsScore.skills}%"></div>
+                    <div class="progress-fill" style="width: ${skills}%"></div>
                 </div>
             </div>
         `;
+        console.log('ATS score displayed successfully');
     }
 
     function displayFeedback(feedback) {
+        console.log('Displaying feedback:', feedback);
         const cf = feedback && typeof feedback === 'object' && !Array.isArray(feedback) && feedback.overall_impression ? feedback : null;
         if (cf) {
             feedbackListDiv.innerHTML = `
                 <div class="feedback-section">
                     <h3>Overall Impression</h3>
-                    <p>${cf.overall_impression}</p>
+                    <p>${cf.overall_impression || 'Not available'}</p>
                 </div>
                 <div class="feedback-section">
                     <h3>Resume Quality Review</h3>
                     <ul>
-                        <li><strong>Structure & Formatting:</strong> ${cf.review.structure}</li>
-                        <li><strong>Content Clarity:</strong> ${cf.review.clarity}</li>
-                        <li><strong>ATS Compatibility:</strong> ${cf.review.ats}</li>
-                        <li><strong>Technical Depth:</strong> ${cf.review.technical}</li>
+                        <li><strong>Structure & Formatting:</strong> ${cf.review?.structure || 'Not available'}</li>
+                        <li><strong>Content Clarity:</strong> ${cf.review?.clarity || 'Not available'}</li>
+                        <li><strong>ATS Compatibility:</strong> ${cf.review?.ats || 'Not available'}</li>
+                        <li><strong>Technical Depth:</strong> ${cf.review?.technical || 'Not available'}</li>
                     </ul>
                 </div>
                 <div class="feedback-section">
                     <h3>Strengths</h3>
-                    <ul>${cf.strengths.map(item => `<li>${item}</li>`).join('')}</ul>
+                    <ul>${(cf.strengths || []).length ? cf.strengths.map(item => `<li>${item}</li>`).join('') : '<li>No strengths listed</li>'}</ul>
                 </div>
                 <div class="feedback-section">
                     <h3>Areas for Improvement</h3>
-                    <ul>${cf.areas_for_improvement.map(item => `<li>${item}</li>`).join('')}</ul>
+                    <ul>${(cf.areas_for_improvement || []).length ? cf.areas_for_improvement.map(item => `<li>${item}</li>`).join('') : '<li>No areas for improvement listed</li>'}</ul>
                 </div>
                 <div class="feedback-section">
                     <h3>Career Improvement Suggestions</h3>
-                    <p><strong>Skills to learn:</strong> ${cf.career_suggestions.learn.join(', ')}</p>
-                    <p><strong>Suggested certifications:</strong> ${cf.career_suggestions.certifications.join(', ')}</p>
-                    <p><strong>Portfolio improvements:</strong> ${cf.career_suggestions.portfolio.join(' ')}</p>
-                    <p><strong>Project ideas:</strong> ${cf.career_suggestions.project_ideas.join(', ')}</p>
+                    <p><strong>Skills to learn:</strong> ${(cf.career_suggestions?.learn || []).join(', ')}</p>
+                    <p><strong>Suggested certifications:</strong> ${(cf.career_suggestions?.certifications || []).join(', ')}</p>
+                    <p><strong>Portfolio improvements:</strong> ${(cf.career_suggestions?.portfolio || []).join(' ')}</p>
+                    <p><strong>Project ideas:</strong> ${(cf.career_suggestions?.project_ideas || []).join(', ')}</p>
                 </div>
                 <div class="feedback-section">
                     <h3>Placement Readiness</h3>
                     <ul>
-                        <li><strong>Internships:</strong> ${cf.placement_readiness.internships}</li>
-                        <li><strong>Entry-level:</strong> ${cf.placement_readiness.entry_level}</li>
-                        <li><strong>Product-based companies:</strong> ${cf.placement_readiness.product_based}</li>
-                        <li><strong>Service-based companies:</strong> ${cf.placement_readiness.service_based}</li>
+                        <li><strong>Internships:</strong> ${cf.placement_readiness?.internships || 'Not available'}</li>
+                        <li><strong>Entry-level:</strong> ${cf.placement_readiness?.entry_level || 'Not available'}</li>
+                        <li><strong>Product-based companies:</strong> ${cf.placement_readiness?.product_based || 'Not available'}</li>
+                        <li><strong>Service-based companies:</strong> ${cf.placement_readiness?.service_based || 'Not available'}</li>
                     </ul>
                 </div>
                 <div class="feedback-section">
                     <h3>Final Feedback Score</h3>
                     <ul>
-                        <li><strong>ATS Score:</strong> ${cf.final_scores.ats_score}%</li>
-                        <li><strong>Resume Quality Score:</strong> ${cf.final_scores.resume_quality_score} / 10</li>
-                        <li><strong>Technical Profile Score:</strong> ${cf.final_scores.technical_profile_score} / 10</li>
-                        <li><strong>Overall Employability Score:</strong> ${cf.final_scores.overall_employability_score} / 10</li>
+                        <li><strong>ATS Score:</strong> ${cf.final_scores?.ats_score || 'N/A'}%</li>
+                        <li><strong>Resume Quality Score:</strong> ${cf.final_scores?.resume_quality_score || 'N/A'} / 10</li>
+                        <li><strong>Technical Profile Score:</strong> ${cf.final_scores?.technical_profile_score || 'N/A'} / 10</li>
+                        <li><strong>Overall Employability Score:</strong> ${cf.final_scores?.overall_employability_score || 'N/A'} / 10</li>
                     </ul>
                 </div>
             `;
         } else if (Array.isArray(feedback)) {
-            feedbackListDiv.innerHTML = feedback.map(item => `
+            feedbackListDiv.innerHTML = feedback.length ? feedback.map(item => `
                 <div class="feedback-item">
                     <p>${item}</p>
                 </div>
-            `).join('');
+            `).join('') : '<div class="feedback-item"><p>No feedback available at this time.</p></div>';
         } else {
             feedbackListDiv.innerHTML = '<div class="feedback-item"><p>No feedback available at this time. Please analyze a resume first.</p></div>';
         }
+        console.log('Feedback displayed successfully');
     }
 
     // Interview questions
@@ -329,7 +432,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Portfolio Builder
     const generatePortfolioBtn = document.getElementById('generate-portfolio');
-    let currentAnalysis = null;
 
     generatePortfolioBtn.addEventListener('click', async () => {
         if (!currentAnalysis || !currentAnalysis.analysis) {

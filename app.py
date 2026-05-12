@@ -1,14 +1,25 @@
 from flask import Flask, render_template, request, jsonify, session
 import os
+from dotenv import load_dotenv
 from werkzeug.utils import secure_filename
+from werkzeug.middleware.proxy_fix import ProxyFix
 import PyPDF2
 from docx import Document
 import re
 
+load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'dev-key-change-in-production')
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+app.config.update({
+    'SESSION_COOKIE_HTTPONLY': True,
+    'SESSION_COOKIE_SECURE': os.getenv('SESSION_COOKIE_SECURE', 'false').lower() in ('1', 'true', 'yes'),
+    'SESSION_COOKIE_SAMESITE': 'Lax',
+    'PREFERRED_URL_SCHEME': os.getenv('PREFERRED_URL_SCHEME', 'https')
+})
+if os.getenv('ENABLE_PROXY_FIX', 'false').lower() in ('1', 'true', 'yes'):
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
 
 
 # Ensure upload folder exists

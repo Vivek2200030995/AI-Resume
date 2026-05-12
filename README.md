@@ -50,6 +50,40 @@ AI-Resume/
 - Explore interview questions by switching between Technical and HR tabs.
 - View the portfolio preview section.
 
+## Production Deployment
+
+This project is production-ready with Gunicorn and environment-based configuration.
+
+1. Install dependencies:
+   - `pip install -r requirements.txt`
+2. Set a secure `SECRET_KEY` in your production environment.
+3. Start the app with Gunicorn:
+   - `gunicorn app:app --bind 0.0.0.0:${PORT:-5000}`
+4. If you are using Render, the existing `Procfile` is already configured:
+   - `web: gunicorn app:app`
+5. For local development, copy `.env.example` to `.env` and update values.
+
+### Environment variables
+
+- `SECRET_KEY` — required for session security in production.
+- `PORT` — port used by the app in local testing and some hosting providers.
+- `FLASK_ENV` — set to `production` for production deployments.
+- `SESSION_COOKIE_SECURE` — recommended `true` for HTTPS-only cookies.
+- `PREFERRED_URL_SCHEME` — set to `https` for production.
+- `ENABLE_PROXY_FIX` — set to `true` when behind a reverse proxy.
+
+## Docker Deployment
+
+This app can also run in a production container using the included `Dockerfile`.
+
+1. Build the Docker image:
+   - `docker build -t ai-resume-assistant .`
+2. Run the container:
+   - `docker run -e SECRET_KEY=your-secret-key -p 5000:5000 ai-resume-assistant`
+3. Open `http://127.0.0.1:5000` in your browser.
+
+For production, provide `SECRET_KEY` and any other environment variables securely through your container platform or orchestration layer.
+
 ## Contributing
 
 Feel free to contribute by submitting issues or pull requests.
